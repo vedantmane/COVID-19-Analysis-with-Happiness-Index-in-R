@@ -21,4 +21,12 @@ timeSeriesCOVID19 <- read.csv("./data/timeSeriesCOVID19.csv")
 #Reference Covid-19 combined data >> Subset INDIA
 referenceURL <- "https://raw.githubusercontent.com/datasets/covid-19/master/data/reference.csv"
 download.file(referenceURL, "./data/subsetINDIAStates.csv")
-INDIA_States <- read.csv("./data/subsetINDIAStates.csv")
+INDIA_States <- read.csv("./data/subsetINDIAStates.csv", na.strings = c("NA", "", " "))
+head(INDIA_States)
+
+INDIA_States <- subset(INDIA_States, subset = (INDIA_States$Country_Region == "India"))
+write.csv(INDIA_States, "./data/INDIAStates.csv")
+
+indiaStates <- read.csv("./data/INDIAStates.csv")
+head(indiaStates)
+is.na(indiaStates$Province_State)
