@@ -6,12 +6,10 @@ if(!dir.exists("./data")){
 #Download Countries Aggregated Data
 countriesAggURL <- "https://raw.githubusercontent.com/datasets/covid-19/master/data/countries-aggregated.csv"
 download.file(countriesAggURL, "./data/countriesAggregated.csv")
-countriesAgg <- read.csv("./data/countriesAggregated.csv")
 
 #Download Worldwide Aggregated Data
 worldwideAggURL <- "https://raw.githubusercontent.com/datasets/covid-19/master/data/worldwide-aggregated.csv"
 download.file(worldwideAggURL, "./data/worldwideAggregated.csv")
-worldwideAgg <- read.csv("./data/worldwideAggregated.csv")
 
 #Time-series Covid-19 combined data
 timeSeriesURL <- "https://raw.githubusercontent.com/datasets/covid-19/master/data/time-series-19-covid-combined.csv"
@@ -26,7 +24,3 @@ head(INDIA_States)
 
 INDIA_States <- subset(INDIA_States, subset = (INDIA_States$Country_Region == "India"))
 write.csv(INDIA_States, "./data/INDIAStates.csv")
-
-indiaStates <- read.csv("./data/INDIAStates.csv")
-head(indiaStates)
-is.na(indiaStates$Province_State)
