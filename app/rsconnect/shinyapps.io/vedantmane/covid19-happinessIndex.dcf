@@ -5,8 +5,8 @@ account: vedantmane
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2693272
-bundleId: 3543049
+bundleId: 3544827
 url: https://vedantmane.shinyapps.io/covid19-happinessIndex/
-when: 1598039855.11871
+when: 1598093850.82889
 asMultiple: FALSE
 asStatic: FALSE

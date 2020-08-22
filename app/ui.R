@@ -24,8 +24,8 @@ shinyUI(fluidPage(
                      sidebarPanel(
                          h4(strong("Novel CoronaVirus Disease (COVID-19)")),
                          hr(),
-                         a(p("View Presentation"), href="https://rpubs.com/vedantmane/swiftkeyPres"),
-                         a(p("Click here to jump to the Github Repository."), href="https://github.com/vedantmane/COVID-19-Analysis-with-Happiness-Index-in-R")
+                         a(p("View Presentation"), href="https://rpubs.com/vedantmane/swiftkeyPres", target = "_blank"),
+                         a(p("Click here to jump to the Github Repository."), href="https://github.com/vedantmane/COVID-19-Analysis-with-Happiness-Index-in-R", target = "_blank")
                      ),
                      mainPanel(
                          

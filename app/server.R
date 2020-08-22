@@ -1,6 +1,7 @@
 
 library(shiny)
 library(plotly)
+library(dplyr)
 
 #Create Data Directory
 if(!dir.exists("./data")){
@@ -75,84 +76,87 @@ shinyServer(function(input, output) {
     data = merge.data.frame(plotWorldDF, happiness_report20sub, by.x = "Country", by.y = "Country.or.region")
     
     m <- list(
-        l = 50,
-        r = 50,
+        l = 40,
+        r = 40,
         b = 70,
         t = 70
     )
     
     output$casesWorld <- renderPlotly({
-        fig <- plot_ly(worldwideAgg, x = as.Date(worldwideAgg$Date))
-        fig <- add_trace(fig, y = ~worldwideAgg$Confirmed, 
-                         name = "Confirmed", mode = "lines", color = I("salmon"))
-        fig <- add_trace(fig, y = ~worldwideAgg$Recovered, 
-                         name = "Recovered", mode = "lines", color = I("cyan"))
-        fig <- add_trace(fig, y = ~worldwideAgg$Deaths, 
-                         name = "Deaths", mode = "lines", color = I("orangered"))
-        fig <- layout(fig, title = "CoronaVirus Cases arould the World",
-                      xaxis = list(title = "Date"),
-                      yaxis = list(title = "Number of Patients"), margin = m)
+        fig <- plot_ly(worldwideAgg, x = as.Date(worldwideAgg$Date)) %>%
+            add_trace(y = ~worldwideAgg$Confirmed,
+                      name = "Confirmed", mode = "lines", color = I("salmon")) %>%
+            add_trace(y = ~worldwideAgg$Recovered,
+                      name = "Recovered", mode = "lines", color = I("cyan")) %>%
+            add_trace(y = ~worldwideAgg$Deaths, 
+                         name = "Deaths", mode = "lines", color = I("orangered")) %>%
+            layout(title = "CoronaVirus Cases arould the World",
+                   xaxis = list(title = "Date"),
+                   yaxis = list(title = "Number of Patients"), margin = m,
+                   legend = list(x = 0.1, y = 1, 
+                                 bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
         fig
     })
     
     output$mapWorld <- renderPlotly({
         #Plot WorldWide CoronaVirus Cases on Map
-        v1 <- tapply(countriesAgg$Confirmed, factor(countriesAgg$Country), max)
-        v2 <- tapply(countriesAgg$Recovered, factor(countriesAgg$Country), max)
-        v3 <- tapply(countriesAgg$Deaths, factor(countriesAgg$Country), max)
-        plotWorldDF <- data.frame("Country" = names(v1), "Confirmed" = v1, "Recovered" = v2, "Deaths" = v3)
+        vc1 <- tapply(countriesAgg$Confirmed, factor(countriesAgg$Country), max)
+        vc2 <- tapply(countriesAgg$Recovered, factor(countriesAgg$Country), max)
+        vc3 <- tapply(countriesAgg$Deaths, factor(countriesAgg$Country), max)
+        mapWorldDF <- data.frame("Country" = names(v1), "Confirmed" = vc1, "Recovered" = vc2, "Deaths" = vc3)
         temp <- subset(INDIA_States, subset = (is.na(INDIA_States$Province_State) == "TRUE"))
         temp <- temp[,c("iso3", "Country_Region")]
-        plotWorldDF <- merge.data.frame(plotWorldDF, temp, by.x = "Country", by.y = "Country_Region")
-        plotWorldDF$hover <- with(plotWorldDF, paste(Country, '<br>', 
+        mapWorldDF <- merge.data.frame(mapWorldDF, temp, by.x = "Country", by.y = "Country_Region")
+        mapWorldDF$hover <- with(mapWorldDF, paste(Country, '<br>', 
                                                      "<b>Confirmed: </b>", Confirmed, '<br>',
                                                      "<b>Recovered: </b>", Recovered, '<br>',
                                                      "<b>Deaths: </b>", Deaths))
         
-        fig <- plot_ly(plotWorldDF, type = "choropleth", 
-                       locations = plotWorldDF$iso3, z = plotWorldDF$Confirmed,
-                       text = plotWorldDF$hover, colorscale = "Reds")
-        fig <- layout(fig, title = "CoronaVirus Cases arould the World", margin = m)
+        fig <- plot_ly(mapWorldDF, type = "choropleth", 
+                       locations = mapWorldDF$iso3, z = mapWorldDF$Confirmed,
+                       text = mapWorldDF$hover, colorscale = "Reds") %>%
+            layout(title = "CoronaVirus Cases arould the World")
         fig
     })
     
     output$casesWorldDaily <- renderPlotly({
-        fig <- plot_ly(worldwideAgg, x = as.Date(worldwideAgg$Date), fill = "tozeroy")
-        fig <- add_trace(fig, y = ~c(0, diff(worldwideAgg$Confirmed)), 
-                         name = "Daily Change in Cases", mode = "lines")
-        fig <- layout(fig, title = "Daily Change in Number of CoronaVirus Cases arould the World",
-                      xaxis = list(title = "Date"),
-                      yaxis = list(title = "Number of Confirmed Cases"), margin = m)
+        fig <- plot_ly(worldwideAgg, x = as.Date(worldwideAgg$Date), fill = "tozeroy") %>%
+            add_trace(y = ~c(0, diff(worldwideAgg$Confirmed)), 
+                         name = "Daily Change in Cases", mode = "lines") %>%
+            layout(title = "Daily Change in Number of CoronaVirus Cases arould the World",
+                   xaxis = list(title = "Date"),
+                   yaxis = list(title = "Number of Confirmed Cases"), margin = m)
         fig
     })
 
     output$casesGDPpc <- renderPlotly({
         
-        fig1 <- plot_ly(data = data, 
-                        x = data$GDP.per.capita, y = log10(data$Confirmed),
-                        name = "Confirmed Cases", type = "scatter", mode = "markers")
         fit <- lm(log10(data$Confirmed) ~ data$GDP.per.capita, data = data)
         summ <- summary(fit)
         pred <- predict(fit)
         ll.df <- data.frame(data$GDP.per.capita, fit = pred, 
                             lb = pred - (1 * summ$sigma), ub = pred + (1 * summ$sigma))
-        ll.df <-ll.df[order(ll.df$data.GDP.per.capita),]
-        fig1 <- add_lines(fig1, 
-                          x = data$GDP.per.capita, 
-                          y = predict(fit), 
-                          mode = "lines", name = "Linear Regression",
-                          line=list(color="#366092", width=2))
-        fig1 <- add_ribbons(fig1, 
-                            x=ll.df$data.GDP.per.capita,
-                            ymin=ll.df$lb, ymax=ll.df$ub, name="95% CI", 
-                            opacity=0.4, 
-                            line=list(width=0, color="#366092"))
-        fig1 <- layout(fig1, title = "GDP per capita versus CoronaVirus Cases",
-                       xaxis = list(title = "GDP per capita"),
-                       yaxis = list(title = "Log of Number of Confirmed Cases"))
-        fig2 <- plot_ly(data = data, 
-                        x = data$GDP.per.capita, y = log10(data$Max.Infection.Rate), 
-                        name = "Maximum Infection Rate", type = "scatter", mode = "markers")
+        ll.df <- ll.df[order(ll.df$data.GDP.per.capita),]
+        
+        fig1 <- plot_ly(data = data, 
+                        x = data$GDP.per.capita, y = log10(data$Confirmed),
+                        name = "Confirmed Cases", type = "scatter", mode = "markers") %>%
+            add_lines(x = data$GDP.per.capita,
+                      y = predict(fit), 
+                      mode = "lines", name = "Linear Regression",
+                      line=list(color="salmon", width=2), showlegend = FALSE) %>%
+            add_ribbons(x=ll.df$data.GDP.per.capita,
+                        ymin=ll.df$lb, ymax=ll.df$ub, name="68% CI", 
+                        opacity=0.2,
+                        fillcolor = "orangered",
+                        line=list(width=0, color="salmon"), showlegend = FALSE) %>%
+            layout(title = "GDP per capita versus CoronaVirus Cases",
+                   xaxis = list(title = "GDP per capita"),
+                   yaxis = list(title = "Log of Number of Confirmed Cases"))
+        
         fit <- lm(log10(data$Max.Infection.Rate) ~ data$GDP.per.capita, data = data)
         summ <- summary(fit)
         pred <- predict(fit)
@@ -160,51 +164,56 @@ shinyServer(function(input, output) {
                             lb = pred - (1 * summ$sigma), 
                             ub = pred + (1 * summ$sigma))
         ll.df <-ll.df[order(ll.df$data.GDP.per.capita),]
-        fig2 <- add_lines(fig2, 
-                          x = data$GDP.per.capita, 
-                          y = predict(fit), 
-                          mode = "lines", name = "Linear Regression",
-                          line=list(color="#366092", width=2))
-        fig2 <- add_ribbons(fig2, 
-                            x=ll.df$data.GDP.per.capita,
-                            ymin=ll.df$lb, ymax=ll.df$ub, name="95% CI", 
-                            opacity=0.4, 
-                            line=list(width=0, color="#366092"))
-        fig2 <- layout(fig2, title = "GDP per capita versus Maximum Infection Rate",
+
+        fig2 <- plot_ly(data = data, 
+                        x = data$GDP.per.capita, y = log10(data$Max.Infection.Rate), 
+                        name = "Maximum Infection Rate", type = "scatter", mode = "markers") %>%
+            add_lines(x = data$GDP.per.capita, 
+                      y = predict(fit), 
+                      mode = "lines", name = "Linear Regression",
+                      line=list(color="blue", width=2), showlegend = FALSE) %>%
+            add_ribbons(x=ll.df$data.GDP.per.capita,
+                        ymin=ll.df$lb, ymax=ll.df$ub, name="68% CI", 
+                        opacity=0.2, fillcolor="lightblue", 
+                        line=list(color="blue", width=0), showlegend = FALSE) %>%
+            layout(title = "GDP per capita versus Maximum Infection Rate",
                        xaxis = list(title = "GDP per capita"),
                        yaxis = list(title = "Log of Maximum Infection Rate"))
-        fig <- subplot(fig1, fig2, shareY = TRUE, titleX = TRUE)
-        fig <- layout(fig, yaxis = list(title = "Log of Cases"), margin = m)
+        
+        fig <- subplot(fig1, fig2, shareY = TRUE, titleX = TRUE) %>%
+            layout(yaxis = list(title = "Log of Cases"), margin = m,
+                   legend = list(x = 0.4, y = 1, orientation = "v", 
+                                 bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
         fig
     })
     
     output$casesSS <- renderPlotly({
 
-        fig1 <- plot_ly(data = data, 
-                        x = data$Social.support, y = log10(data$Confirmed),
-                        name = "Confirmed Cases", type = "scatter", mode = "markers")
         fit <- lm(log10(data$Confirmed) ~ data$Social.support, data = data)
         summ <- summary(fit)
         pred <- predict(fit)
         ll.df <- data.frame(data$Social.support, fit = pred, 
                             lb = pred - (1 * summ$sigma), ub = pred + (1 * summ$sigma))
         ll.df <-ll.df[order(ll.df$data.Social.support),]
-        fig1 <- add_lines(fig1, 
-                          x = data$Social.support, 
-                          y = predict(fit), 
-                          mode = "lines", name = "Linear Regression",
-                          line=list(color="#366092", width=2))
-        fig1 <- add_ribbons(fig1, 
-                            x=ll.df$data.Social.support,
-                            ymin=ll.df$lb, ymax=ll.df$ub, name="95% CI",
-                            opacity=0.4, 
-                            line=list(width=0, color="#366092"))
-        fig1 <- layout(fig1, title = "Social Support versus CoronaVirus Cases",
-                       xaxis = list(title = "Social Support"),
-                       yaxis = list(title = "Log of Number of Confirmed Cases"))
-        fig2 <- plot_ly(data = data, 
-                        x = data$Social.support, y = log10(data$Max.Infection.Rate), 
-                        name = "Maximum Infection Rate", type = "scatter", mode = "markers")
+
+        fig1 <- plot_ly(data = data, 
+                        x = data$Social.support, y = log10(data$Confirmed),
+                        name = "Confirmed Cases", type = "scatter", mode = "markers") %>%
+            add_lines(x = data$Social.support,
+                      y = predict(fit), 
+                      mode = "lines", name = "Linear Regression",
+                      line=list(color="salmon", width=2), showlegend = FALSE) %>%
+            add_ribbons(x=ll.df$data.Social.support,
+                        ymin=ll.df$lb, ymax=ll.df$ub, name="68% CI",
+                        opacity=0.2, fillcolor = "orangered", 
+                        line=list(width=0, color="salmon"), showlegend = FALSE) %>%
+            layout(title = "Social Support versus CoronaVirus Cases",
+                   xaxis = list(title = "Social Support"),
+                   yaxis = list(title = "Log of Number of Confirmed Cases"))
+        
         fit <- lm(log10(data$Max.Infection.Rate) ~ data$Social.support, data = data)
         summ <- summary(fit)
         pred <- predict(fit)
@@ -212,52 +221,57 @@ shinyServer(function(input, output) {
                             lb = pred - (1 * summ$sigma), 
                             ub = pred + (1 * summ$sigma))
         ll.df <-ll.df[order(ll.df$data.Social.support),]
-        fig2 <- add_lines(fig2, 
-                          x = data$Social.support, 
-                          y = predict(fit), 
-                          mode = "lines", name = "Linear Regression",
-                          line=list(color="#366092", width=2))
-        fig2 <- add_ribbons(fig2, 
-                            x=ll.df$data.Social.support,
-                            ymin=ll.df$lb, ymax=ll.df$ub, name="95% CI", 
-                            opacity=0.4, 
-                            line=list(width=0, color="#366092"))
-        fig2 <- layout(fig2, title = "Social Support versus Maximum Infection Rate",
-                       xaxis = list(title = "Social Support"),
-                       yaxis = list(title = "Log of Maximum Infection Rate"))
-        fig <- subplot(fig1, fig2, shareY = TRUE, titleX = TRUE)
-        fig <- layout(fig, yaxis = list(title = "Log of Cases"), margin = m)
+        
+        fig2 <- plot_ly(data = data, 
+                        x = data$Social.support, y = log10(data$Max.Infection.Rate), 
+                        name = "Maximum Infection Rate", type = "scatter", mode = "markers") %>%
+            add_lines(x = data$Social.support, 
+                      y = predict(fit), 
+                      mode = "lines", name = "Linear Regression",
+                      line=list(color="blue", width=2), showlegend = FALSE) %>%
+            add_ribbons(x=ll.df$data.Social.support,
+                        ymin=ll.df$lb, ymax=ll.df$ub, name="68% CI", 
+                        opacity=0.2, fillcolor = "lightblue",
+                        line=list(width=0, color="#366092"), showlegend = FALSE) %>%
+            layout(title = "Social Support versus Maximum Infection Rate",
+                   xaxis = list(title = "Social Support"),
+                   yaxis = list(title = "Log of Maximum Infection Rate"))
+    
+        fig <- subplot(fig1, fig2, shareY = TRUE, titleX = TRUE) %>%
+            layout(yaxis = list(title = "Log of Cases"), margin = m,
+                   legend = list(x = 0.4, y = 1, orientation = "v", 
+                                 bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
         fig
         
     })
     
     output$casesHLE <- renderPlotly({
 
-        fig1 <- plot_ly(data = data, 
-                        x = data$Healthy.life.expectancy, y = log10(data$Confirmed),
-                        name = "Confirmed Cases", type = "scatter", mode = "markers")
         fit <- lm(log10(data$Confirmed) ~ data$Healthy.life.expectancy, data = data)
         summ <- summary(fit)
         pred <- predict(fit)
         ll.df <- data.frame(data$Healthy.life.expectancy, fit = pred, 
                             lb = pred - (1 * summ$sigma), ub = pred + (1 * summ$sigma))
         ll.df <-ll.df[order(ll.df$data.Healthy.life.expectancy),]
-        fig1 <- add_lines(fig1, 
-                          x = data$Healthy.life.expectancy, 
-                          y = predict(fit), 
-                          mode = "lines", name = "Linear Regression",
-                          line=list(color="#366092", width=2))
-        fig1 <- add_ribbons(fig1, 
-                            x=ll.df$data.Healthy.life.expectancy,
-                            ymin=ll.df$lb, ymax=ll.df$ub, name="95% CI",
-                            opacity=0.4, 
-                            line=list(width=0, color="#366092"))
-        fig1 <- layout(fig1, title = "Healthy Life Expectancy versus CoronaVirus Cases",
-                       xaxis = list(title = "Healthy Life Expectancy"),
-                       yaxis = list(title = "Log of Number of Confirmed Cases"))
-        fig2 <- plot_ly(data = data, 
-                        x = data$Healthy.life.expectancy, y = log10(data$Max.Infection.Rate), 
-                        name = "Maximum Infection Rate", type = "scatter", mode = "markers")
+        
+        fig1 <- plot_ly(data = data, 
+                        x = data$Healthy.life.expectancy, y = log10(data$Confirmed),
+                        name = "Confirmed Cases", type = "scatter", mode = "markers") %>%
+            add_lines(x = data$Healthy.life.expectancy, 
+                      y = predict(fit), 
+                      mode = "lines", name = "Linear Regression",
+                      line=list(color="salmon", width=2), showlegend = FALSE) %>%
+            add_ribbons(x=ll.df$data.Healthy.life.expectancy,
+                        ymin=ll.df$lb, ymax=ll.df$ub, name="68% CI",
+                        opacity=0.2, fillcolor = "orangered",
+                        line=list(width=0, color="salmon"), showlegend = FALSE) %>%
+            layout(title = "Healthy Life Expectancy versus CoronaVirus Cases",
+                   xaxis = list(title = "Healthy Life Expectancy"),
+                   yaxis = list(title = "Log of Number of Confirmed Cases"))
+        
         fit <- lm(log10(data$Max.Infection.Rate) ~ data$Healthy.life.expectancy, data = data)
         summ <- summary(fit)
         pred <- predict(fit)
@@ -265,54 +279,58 @@ shinyServer(function(input, output) {
                             lb = pred - (1 * summ$sigma), 
                             ub = pred + (1 * summ$sigma))
         ll.df <-ll.df[order(ll.df$data.Healthy.life.expectancy),]
-        fig2 <- add_lines(fig2, 
-                          x = data$Healthy.life.expectancy, 
-                          y = predict(fit), 
-                          mode = "lines", name = "Linear Regression",
-                          line=list(color="#366092", width=2))
-        fig2 <- add_ribbons(fig2, 
-                            x=ll.df$data.Healthy.life.expectancy,
-                            ymin=ll.df$lb, ymax=ll.df$ub, name="95% CI", 
-                            opacity=0.4, 
-                            line=list(width=0, color="#366092"))
-        fig2 <- layout(fig2, title = "Healthy Life Expectancy versus Maximum Infection Rate",
-                       xaxis = list(title = "Healthy Life Expectancy"),
-                       yaxis = list(title = "Log of Maximum Infection Rate"))
-        fig <- subplot(fig1, fig2, shareY = TRUE, titleX = TRUE)
-        fig <- layout(fig, yaxis = list(title = "Log of Cases"), margin = m)
+        
+        fig2 <- plot_ly(data = data, 
+                        x = data$Healthy.life.expectancy, y = log10(data$Max.Infection.Rate), 
+                        name = "Maximum Infection Rate", type = "scatter", mode = "markers") %>%
+            add_lines(x = data$Healthy.life.expectancy, 
+                      y = predict(fit), 
+                      mode = "lines", name = "Linear Regression",
+                      line=list(color="blue", width=2), showlegend = FALSE) %>% 
+            add_ribbons(x=ll.df$data.Healthy.life.expectancy,
+                        ymin=ll.df$lb, ymax=ll.df$ub, name="68% CI", 
+                        opacity=0.2, fillcolor = "lightblue",
+                        line=list(width=0, color="blue"), showlegend = FALSE) %>%
+            layout(title = "Healthy Life Expectancy versus Maximum Infection Rate",
+                   xaxis = list(title = "Healthy Life Expectancy"),
+                   yaxis = list(title = "Log of Maximum Infection Rate"))
+
+        fig <- subplot(fig1, fig2, shareY = TRUE, titleX = TRUE) %>%
+            layout(yaxis = list(title = "Log of Cases"), margin = m,
+                   legend = list(x = 0.4, y = 1, orientation = "v", 
+                                 bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
         fig
         
     })
     
     output$casesFLC <- renderPlotly({
 
-        fig1 <- plot_ly(data = data, 
-                        x = data$Freedom.to.make.life.choices, 
-                        y = log10(data$Confirmed), name = "Confirmed Cases", 
-                        type = "scatter", mode = "markers")
         fit <- lm(log10(data$Confirmed) ~ data$Freedom.to.make.life.choices, data = data)
         summ <- summary(fit)
         pred <- predict(fit)
         ll.df <- data.frame(data$Freedom.to.make.life.choices, fit = pred, 
                             lb = pred - (1 * summ$sigma), ub = pred + (1 * summ$sigma))
         ll.df <-ll.df[order(ll.df$data.Freedom.to.make.life.choices),]
-        fig1 <- add_lines(fig1, 
-                          x = data$Freedom.to.make.life.choices, 
-                          y = predict(fit), 
-                          mode = "lines", name = "Linear Regression",
-                          line=list(color="#366092", width=2))
-        fig1 <- add_ribbons(fig1, 
-                            x=ll.df$data.Freedom.to.make.life.choices,
-                            ymin=ll.df$lb, ymax=ll.df$ub, name="95% CI",
-                            opacity=0.4,
-                            line=list(width=0, color="#366092"))
-        fig1 <- layout(fig1, title = "Freedom to make Life Choices versus CoronaVirus Cases",
-                       xaxis = list(title = "Freedom to make Life Choices"),
-                       yaxis = list(title = "Log of Number of Confirmed Cases"))
-        fig2 <- plot_ly(data = data, 
+
+        fig1 <- plot_ly(data = data, 
                         x = data$Freedom.to.make.life.choices, 
-                        y = log10(data$Max.Infection.Rate), name = "Maximum Infection Rate", 
-                        type = "scatter", mode = "markers")
+                        y = log10(data$Confirmed), name = "Confirmed Cases", 
+                        type = "scatter", mode = "markers") %>%
+            add_lines(x = data$Freedom.to.make.life.choices, 
+                      y = predict(fit), 
+                      mode = "lines", name = "Linear Regression",
+                      line=list(color="salmon", width=2), showlegend = FALSE) %>%
+            add_ribbons(x=ll.df$data.Freedom.to.make.life.choices,
+                        ymin=ll.df$lb, ymax=ll.df$ub, name="68% CI",
+                        opacity=0.2, fillcolor = "orangered",
+                        line=list(width=0, color="salmon"), showlegend = FALSE) %>%
+            layout(title = "Freedom to make Life Choices versus CoronaVirus Cases",
+                   xaxis = list(title = "Freedom to make Life Choices"),
+                   yaxis = list(title = "Log of Number of Confirmed Cases"))
+
         fit <- lm(log10(data$Max.Infection.Rate) ~ data$Freedom.to.make.life.choices, data = data)
         summ <- summary(fit)
         pred <- predict(fit)
@@ -320,21 +338,31 @@ shinyServer(function(input, output) {
                             lb = pred - (1 * summ$sigma), 
                             ub = pred + (1 * summ$sigma))
         ll.df <-ll.df[order(ll.df$data.Freedom.to.make.life.choices),]
-        fig2 <- add_lines(fig2, 
-                          x = data$Freedom.to.make.life.choices, 
-                          y = predict(fit), 
-                          mode = "lines", name = "Linear Regression",
-                          line=list(color="#366092", width=2))
-        fig2 <- add_ribbons(fig2, 
-                            x=ll.df$data.Freedom.to.make.life.choices,
-                            ymin=ll.df$lb, ymax=ll.df$ub, name="95% CI",
-                            opacity=0.4, 
-                            line=list(width=0, color="#366092"))
-        fig2 <- layout(fig2, title = "Freedom to make Life Choices versus Maximum Infection Rate",
-                       xaxis = list(title = "Freedom to make Life Choices"),
-                       yaxis = list(title = "Log of Maximum Infection Rate"))
-        fig <- subplot(fig1, fig2, shareY = TRUE, titleX = TRUE)
-        fig <- layout(fig, yaxis = list(title = "Log of Cases"), margin = m)
+        
+        fig2 <- plot_ly(data = data, 
+                        x = data$Freedom.to.make.life.choices, 
+                        y = log10(data$Max.Infection.Rate), name = "Maximum Infection Rate", 
+                        type = "scatter", mode = "markers") %>%
+            add_lines(x = data$Freedom.to.make.life.choices, 
+                      y = predict(fit), 
+                      mode = "lines", name = "Linear Regression",
+                      line=list(color="blue", width=2), showlegend = FALSE) %>%
+            add_ribbons(x=ll.df$data.Freedom.to.make.life.choices,
+                        ymin=ll.df$lb, ymax=ll.df$ub, name="68% CI",
+                        opacity=0.2, fillcolor = "lightblue",
+                        line=list(width=0, color="blue"), showlegend = FALSE) %>%
+            layout(title = "Freedom to make Life Choices versus Maximum Infection Rate",
+                   xaxis = list(title = "Freedom to make Life Choices"),
+                   yaxis = list(title = "Log of Maximum Infection Rate"))
+        
+        fig <- subplot(fig1, fig2, shareY = TRUE, titleX = TRUE) %>%
+            layout(yaxis = list(title = "Log of Cases"), margin = m,
+                   legend = list(x = 0.4, y = 1, orientation = "v", 
+                                 bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
         fig
+        
     })
 })

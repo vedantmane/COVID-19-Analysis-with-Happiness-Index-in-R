@@ -1,6 +1,6 @@
 require(ggplot2)
 require(plotly)
-require(tidyr)
+require(dplyr)
 
 # Worldwide CoronaVirus cases
 worldwideAgg <- read.csv("./data/worldwideAggregated.csv")
