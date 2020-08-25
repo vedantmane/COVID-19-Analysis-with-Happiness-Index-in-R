@@ -37,12 +37,13 @@ worldwideAgg <- read.csv("./data/worldwideAggregated.csv")
 # timeSeriesCOVID19 <- read.csv("./data/timeSeriesCOVID19.csv")
 # indiaStates <- read.csv("./data/INDIAStates.csv")
 happiness_report20 <- read.csv("./data/Happiness Report/worldwide_happiness_report.csv")
+load("./data/Happiness Report/hri.RDS")
 
 print("Reading done...")
 
 ## Server Code
 
-shinyServer(function(input, output) {
+shinyServer(function(input, output, session) {
     
     # Subset important columns
     happiness_report20sub <- subset(happiness_report20, select = -c(Overall.rank, Score, Generosity, Perceptions.of.corruption))
@@ -76,11 +77,48 @@ shinyServer(function(input, output) {
     data = merge.data.frame(plotWorldDF, happiness_report20sub, by.x = "Country", by.y = "Country.or.region")
     
     m <- list(
-        l = 40,
-        r = 40,
+        l = 20,
+        r = 20,
         b = 70,
         t = 70
     )
+    
+    filteredCountries <- reactive({
+        countriesAgg[countriesAgg$Country %in% input$countrychoice, ]
+    })
+    
+    filterIndia <- reactive({
+        countriesAgg[countriesAgg$Country %in% "India", ]
+    })
+    
+    happiness_index <- reactive({
+        hri[hri$Country %in% input$hicountrychoice, ]
+    })
+
+    happiness_index_India <- reactive({
+        hri[hri$Country %in% "India", ]
+    })
+    
+    output$mapWorld <- renderPlotly({
+        #Plot WorldWide CoronaVirus Cases on Map
+        vc1 <- tapply(countriesAgg$Confirmed, factor(countriesAgg$Country), max)
+        vc2 <- tapply(countriesAgg$Recovered, factor(countriesAgg$Country), max)
+        vc3 <- tapply(countriesAgg$Deaths, factor(countriesAgg$Country), max)
+        mapWorldDF <- data.frame("Country" = names(vc1), "Confirmed" = vc1, "Recovered" = vc2, "Deaths" = vc3)
+        temp <- subset(INDIA_States, subset = (is.na(INDIA_States$Province_State) == "TRUE"))
+        temp <- temp[,c("iso3", "Country_Region")]
+        mapWorldDF <- merge.data.frame(mapWorldDF, temp, by.x = "Country", by.y = "Country_Region")
+        mapWorldDF$hover <- with(mapWorldDF, paste(Country, '<br>', 
+                                                   "<b>Confirmed: </b>", Confirmed, '<br>',
+                                                   "<b>Recovered: </b>", Recovered, '<br>',
+                                                   "<b>Deaths: </b>", Deaths))
+        
+        fig <- plot_ly(mapWorldDF, type = "choropleth", 
+                       locations = mapWorldDF$iso3, z = mapWorldDF$Confirmed,
+                       text = mapWorldDF$hover, colorscale = "Reds") %>%
+            layout(title = "CoronaVirus Cases arould the World")
+        fig
+    })
     
     output$casesWorld <- renderPlotly({
         fig <- plot_ly(worldwideAgg, x = as.Date(worldwideAgg$Date)) %>%
@@ -98,27 +136,6 @@ shinyServer(function(input, output) {
                                  bordercolor = "darkblue",
                                  borderwidth = 2,
                                  title=list(text='<b> Trend </b>')))
-        fig
-    })
-    
-    output$mapWorld <- renderPlotly({
-        #Plot WorldWide CoronaVirus Cases on Map
-        vc1 <- tapply(countriesAgg$Confirmed, factor(countriesAgg$Country), max)
-        vc2 <- tapply(countriesAgg$Recovered, factor(countriesAgg$Country), max)
-        vc3 <- tapply(countriesAgg$Deaths, factor(countriesAgg$Country), max)
-        mapWorldDF <- data.frame("Country" = names(v1), "Confirmed" = vc1, "Recovered" = vc2, "Deaths" = vc3)
-        temp <- subset(INDIA_States, subset = (is.na(INDIA_States$Province_State) == "TRUE"))
-        temp <- temp[,c("iso3", "Country_Region")]
-        mapWorldDF <- merge.data.frame(mapWorldDF, temp, by.x = "Country", by.y = "Country_Region")
-        mapWorldDF$hover <- with(mapWorldDF, paste(Country, '<br>', 
-                                                     "<b>Confirmed: </b>", Confirmed, '<br>',
-                                                     "<b>Recovered: </b>", Recovered, '<br>',
-                                                     "<b>Deaths: </b>", Deaths))
-        
-        fig <- plot_ly(mapWorldDF, type = "choropleth", 
-                       locations = mapWorldDF$iso3, z = mapWorldDF$Confirmed,
-                       text = mapWorldDF$hover, colorscale = "Reds") %>%
-            layout(title = "CoronaVirus Cases arould the World")
         fig
     })
     
@@ -365,4 +382,324 @@ shinyServer(function(input, output) {
         fig
         
     })
+
+    output$mapCountry <- renderPlotly({
+        #Plot Countries CoronaVirus Cases on Map
+        vcsub1 <- tapply(filteredCountries()$Confirmed, factor(filteredCountries()$Country), max)
+        vcsub2 <- tapply(filteredCountries()$Recovered, factor(filteredCountries()$Country), max)
+        vcsub3 <- tapply(filteredCountries()$Deaths, factor(filteredCountries()$Country), max)
+        mapCountryDF <- data.frame("Country" = names(vcsub1), "Confirmed" = vcsub1, "Recovered" = vcsub2, "Deaths" = vcsub3)
+        temp <- subset(INDIA_States, subset = (is.na(INDIA_States$Province_State) == "TRUE"))
+        temp <- temp[,c("iso3", "Country_Region")]
+        mapCountryDF <- merge.data.frame(mapCountryDF, temp, by.x = "Country", by.y = "Country_Region")
+        mapCountryDF$hover <- with(mapCountryDF, paste(Country, '<br>', 
+                                                   "<b>Confirmed: </b>", Confirmed, '<br>',
+                                                   "<b>Recovered: </b>", Recovered, '<br>',
+                                                   "<b>Deaths: </b>", Deaths))
+        
+        fig <- plot_ly(mapCountryDF, type = "choropleth", 
+                       locations = mapCountryDF$iso3, z = mapCountryDF$Confirmed,
+                       text = mapCountryDF$hover, colorscale = "Reds") %>%
+            layout(title = "CoronaVirus Cases arould the World")
+        fig
+    })
+        
+    output$multipleC <- renderPlotly({
+        plot_ly(filteredCountries(), x = ~as.Date(Date), y = ~Confirmed, 
+                type = "scatter", mode = "lines", color = ~Country) %>%
+            layout(title = "CoronaVirus Cases",
+                   xaxis = list(title = "Date"),
+                   yaxis = list(title = "Number of Patients"), margin = m,
+                   legend = list(x = 0.05, y = 1, 
+                                 bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+        })
+
+    output$multipleClog <- renderPlotly({
+        plot_ly(filteredCountries(), x = ~as.Date(Date), y = ~log(Confirmed), 
+                type = "scatter", mode = "lines", color = ~Country) %>%
+            layout(title = "CoronaVirus Cases",
+                   xaxis = list(title = "Date"),
+                   yaxis = list(title = "Number of Patients"), margin = m,
+                   legend = list(x = 0.05, y = 1, 
+                                 bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$multipleCdiff <- renderPlotly({
+        fig <- plot_ly()
+        for (ci in levels(factor(filteredCountries()$Country))){
+            dt <- filteredCountries()[filteredCountries()$Country == ci,]
+            fig <- add_trace(fig, data = dt, x = ~as.Date(Date), y = c(0, diff(dt$Confirmed)),
+                             name = ci, type = "scatter", mode = "lines", 
+                             opacity = 0.7)
+        }
+        fig %>%
+            layout(title = "Daily CoronaVirus Cases",
+                   xaxis = list(title = "Date"),
+                   yaxis = list(title = "Number of Patients"), margin = m,
+                   legend = list(x = 0.05, y = 1, 
+                                 bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$multipleRank <- renderPlotly({
+        hisub <- happiness_index()
+        plot_ly(data = hisub, x = ~factor(Year), y = ~Overall.Rank, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(autorange = "reversed", rangemode = "tozero")) %>%
+            layout(title = "Happiness Index Ranks",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "Overall Rank"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$multipleScore <- renderPlotly({
+        hisub <- happiness_index()
+        plot_ly(data = hisub, x = ~factor(Year), y = ~Score, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(rangemode = "tozero")) %>%
+            layout(title = "Happiness Index Score",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "Happiness Score"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+        
+        
+    })
+    
+    output$multipleGDP <- renderPlotly({
+        hisub <- happiness_index()
+        plot_ly(data = hisub, x = ~factor(Year), y = ~GDP.per.capita, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(rangemode = "tozero")) %>%
+            layout(title = "Impact of GDP per capita",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "GDP per capita"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+        
+        
+    })
+    
+    output$multipleHLE <- renderPlotly({
+        hisub <- happiness_index()
+        plot_ly(data = hisub, x = ~factor(Year), y = ~Healthy.Life.Expectancy, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(rangemode = "tozero")) %>%
+            layout(title = "Impact on Healthy Life Expectancy",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "Life Expectancy"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+        
+    })
+    
+    output$multipleFLC <- renderPlotly({
+        hisub <- happiness_index()
+        plot_ly(data = hisub, x = ~factor(Year), y = ~Freedom.to.make.life.choices, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(rangemode = "tozero")) %>%
+            layout(title = "Impact on Freedom to make Life Choices",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "Freedom"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+        
+            
+        
+    })
+    
+    output$multipleGen <- renderPlotly({
+        hisub <- happiness_index()
+        plot_ly(data = hisub, x = ~factor(Year), y = ~Generosity, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(rangemode = "tozero")) %>%
+            layout(title = "Impact on Generosity",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "Generosity"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+        
+        
+        
+    })
+    
+    output$multipleSS <- renderPlotly({
+        hisub <- happiness_index()
+        plot_ly(data = hisub, x = ~factor(Year), y = ~Social.support, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(rangemode = "tozero")) %>%
+            layout(title = "Impact on Social Support",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "Social Support"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$indiaC <- renderPlotly({
+        plot_ly(filterIndia(), x = ~as.Date(Date), y = ~Confirmed, 
+                type = "scatter", mode = "lines", color = ~Country) %>%
+            layout(title = "CoronaVirus Cases",
+                   xaxis = list(title = "Date"),
+                   yaxis = list(title = "Number of Patients"), margin = m,
+                   legend = list(x = 0.05, y = 1, 
+                                 bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$indiaClog <- renderPlotly({
+        plot_ly(filterIndia(), x = ~as.Date(Date), y = ~log(Confirmed), 
+                type = "scatter", mode = "lines", color = ~Country) %>%
+            layout(title = "CoronaVirus Cases",
+                   xaxis = list(title = "Date"),
+                   yaxis = list(title = "Number of Patients"), margin = m,
+                   legend = list(x = 0.05, y = 1, 
+                                 bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$indiaCdiff <- renderPlotly({
+        fig <- plot_ly()
+        for (ci in levels(factor(filterIndia()$Country))){
+            dt <- filterIndia()[filterIndia()$Country == ci,]
+            fig <- add_trace(fig, data = dt, x = ~as.Date(Date), y = c(0, diff(dt$Confirmed)),
+                             name = ci, type = "scatter", mode = "lines", 
+                             opacity = 0.7)
+        }
+        fig %>%
+            layout(title = "Daily CoronaVirus Cases",
+                   xaxis = list(title = "Date"),
+                   yaxis = list(title = "Number of Patients"), margin = m,
+                   legend = list(x = 0.05, y = 1, 
+                                 bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$indiaRank <- renderPlotly({
+        hisubIndia <- happiness_index_India()
+        plot_ly(data = hisubIndia, x = ~factor(Year), y = ~Overall.Rank, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(autorange = "reversed", rangemode = "tozero")) %>%
+            layout(title = "Happiness Index Ranks",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "Overall Rank"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$indiaScore <- renderPlotly({
+        hisubIndia <- happiness_index_India()
+        plot_ly(data = hisubIndia, x = ~factor(Year), y = ~Score, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(rangemode = "tozero")) %>%
+            layout(title = "Happiness Index Score",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "Happiness Score"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$indiaGDP <- renderPlotly({
+        hisubIndia <- happiness_index_India()
+        plot_ly(data = hisubIndia, x = ~factor(Year), y = ~GDP.per.capita, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(rangemode = "tozero")) %>%
+            layout(title = "Impact of GDP per capita",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "GDP per capita"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$indiaHLE <- renderPlotly({
+        hisubIndia <- happiness_index_India()
+        plot_ly(data = hisubIndia, x = ~factor(Year), y = ~Healthy.Life.Expectancy, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(rangemode = "tozero")) %>%
+            layout(title = "Impact on Healthy Life Expectancy",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "Life Expectancy"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$indiaFLC <- renderPlotly({
+        hisubIndia <- happiness_index_India()
+        plot_ly(data = hisubIndia, x = ~factor(Year), y = ~Freedom.to.make.life.choices, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(rangemode = "tozero")) %>%
+            layout(title = "Impact on Freedom to make Life Choices",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "Freedom"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$indiaGen <- renderPlotly({
+        hisubIndia <- happiness_index_India()
+        plot_ly(data = hisubIndia, x = ~factor(Year), y = ~Generosity, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(rangemode = "tozero")) %>%
+            layout(title = "Impact on Generosity",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "Generosity"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    output$indiaSS <- renderPlotly({
+        hisubIndia <- happiness_index_India()
+        plot_ly(data = hisubIndia, x = ~factor(Year), y = ~Social.support, color = ~Country,
+                type = "scatter", mode = "lines+markers") %>%
+            layout(yaxis = list(rangemode = "tozero")) %>%
+            layout(title = "Impact on Social Support",
+                   xaxis = list(title = "Year"),
+                   yaxis = list(title = "Social Support"), margin = m,
+                   legend = list(bgcolor = "#F2F2F2",
+                                 bordercolor = "darkblue",
+                                 borderwidth = 2,
+                                 title=list(text='<b> Trend </b>')))
+    })
+    
+    
 })

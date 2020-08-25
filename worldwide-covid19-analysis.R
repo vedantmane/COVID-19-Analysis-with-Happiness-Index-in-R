@@ -189,5 +189,77 @@ fig
 
 
 
+filteredCountries <- countriesAgg[countriesAgg$Country == c("US", "India", "Brazil", "Italy"),]
+head(filteredCountries)
+levels(factor(filteredCountries$Country))
+fig <- plot_ly()
+for (ci in levels(factor(filteredCountries$Country))){
+    dt <- filteredCountries[filteredCountries$Country == ci,]
+    fig <- add_trace(fig, data = dt, x = ~as.Date(Date), y = c(0, diff(dt$Confirmed)),
+                     name = ci, type = "scatter", mode ="lines")
+}
+fig
 
 
+
+a = read.csv("./data/Happiness Report/worldwide_happiness_report15.csv")
+a <- subset(a, select = c("Country", "Happiness.Score", "Economy..GDP.per.Capita.",
+                          "Health..Life.Expectancy.", "Freedom"))
+
+b = read.csv("./data/Happiness Report/worldwide_happiness_report16.csv")
+b <- subset(b, select = c("Country", "Happiness.Score", "Economy..GDP.per.Capita.", 
+                          "Health..Life.Expectancy.", "Freedom"))
+
+c = read.csv("./data/Happiness Report/worldwide_happiness_report17.csv")
+c <- subset(c, select = c("Country", "Happiness.Score", "Economy..GDP.per.Capita.", 
+                          "Health..Life.Expectancy.", "Freedom"))
+
+d = read.csv("./data/Happiness Report/worldwide_happiness_report18.csv")
+d <- subset(d, select = c("Country.or.region", "Score", "GDP.per.capita", 
+                          "Social.support", "Healthy.life.expectancy", "Freedom.to.make.life.choices"))
+
+e = read.csv("./data/Happiness Report/worldwide_happiness_report19.csv")
+e <- subset(e, select = c("Country.or.region", "Score", "GDP.per.capita", 
+                          "Social.support", "Healthy.life.expectancy", "Freedom.to.make.life.choices"))
+
+f = read.csv("./data/Happiness Report/worldwide_happiness_report20.csv")
+f <- subset(f, select = c("country", "happiness_score", "gdp_per_capita", 
+                          "social_support", "health", "freedom"))
+
+names(a) <- c("Country", "Score", "GDP.per.capita", 
+              "Healthy.Life.Expectancy", "Freedom.to.make.life.choices")
+a$Year <- "2015"
+a$Social.support <- NA
+
+names(b) <- c("Country", "Score", "GDP.per.capita", 
+              "Healthy.Life.Expectancy", "Freedom.to.make.life.choices")
+b$Year <- "2016"
+b$Social.support <- NA
+
+names(c) <- c("Country", "Score", "GDP.per.capita", 
+              "Healthy.Life.Expectancy", "Freedom.to.make.life.choices")
+c$Year <- "2017"
+c$Social.support <- NA
+
+names(d) <- c("Country", "Score", "GDP.per.capita", "Social.support",
+              "Healthy.Life.Expectancy", "Freedom.to.make.life.choices")
+d$Year <- "2018"
+
+names(e) <- c("Country", "Score", "GDP.per.capita", "Social.support",
+              "Healthy.Life.Expectancy", "Freedom.to.make.life.choices")
+e$Year <- "2019"
+
+names(f) <- c("Country", "Score", "GDP.per.capita", "Social.support",
+              "Healthy.Life.Expectancy", "Freedom.to.make.life.choices")
+f$Year <- "2020"
+
+hri <- rbind.data.frame(a,b,c,d,e,f)
+
+hicountries <- "save rds factor level hri"
+
+hisub <- hri[hri$Country %in% c("India", "United States", "Italy", "China", "Iran", "Spain", "Brazil", "Mexico"),]
+hisub <- hisub[hisub$Year != "2020",]
+
+
+plot_ly(data = hisub, x = ~factor(Year), y = ~Score, color = ~Country,
+        type = "scatter", mode = "lines+markers")
